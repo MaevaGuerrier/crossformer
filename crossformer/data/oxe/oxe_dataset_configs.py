@@ -12,7 +12,7 @@ Target configuration:
     proprio_encoding: Type of proprio encoding used
     action_encoding: Type of action encoding used, e.g. EEF position vs joint position control
 """
-
+# OXE DATASET INFOS https://docs.google.com/spreadsheets/d/1rPBD77tk60AEIGZrGSODwyyzs5FgCU9Uz3h-3_t2A9g/edit?gid=0#gid=0
 from enum import IntEnum
 
 from crossformer.utils.spec import ModuleSpec

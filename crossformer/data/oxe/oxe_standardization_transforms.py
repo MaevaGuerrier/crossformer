@@ -23,6 +23,7 @@ from crossformer.data.utils.data_utils import (
     relabel_actions,
 )
 
+# TODO same as vint waypoint spacing
 METRIC_WAYPOINT_SPACING = {
     "cory_hall": 0.06,
     "go_stanford": 0.12,

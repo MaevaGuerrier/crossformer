@@ -68,6 +68,12 @@ def stack_and_pad(history: deque, num_obs: int):
     return full_obs
 
 
+
+# CrossFormer can not only control such navigators with 2D waypoints, 
+# but is also capable of handling the low-level, 12-dimensional actions 
+# needed to entirely control a quadrupedal robot.
+
+
 class HttpServer:
     def __init__(self, paths):
         self.models = dict()

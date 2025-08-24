@@ -61,6 +61,8 @@ HEAD_TO_DATASET = {
     "quadruped": ["go1_real_dataset", "a1", "go1"],
 }
 
+# TODO: Make it dynamic instead of hardcoding
+SAVE_DIR = "/home/mae/Documents/GIT/Research/crossformer/crossformer/logs/training"
 
 def get_config():
     window_size = FieldReference(default=5)
@@ -69,7 +71,7 @@ def get_config():
         dict(
             seed=42,
             num_steps=300000,
-            save_dir="",
+            save_dir=SAVE_DIR,
             model=get_model_config("detr"),
             window_size=window_size,
             dataset_kwargs=get_dataset_config("multi", window_size, 100),

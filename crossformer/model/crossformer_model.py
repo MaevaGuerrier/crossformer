@@ -21,6 +21,7 @@ from crossformer.model.crossformer_module import CrossFormerModule
 from crossformer.utils.spec import ModuleSpec
 from crossformer.utils.typing import Config, Data, Params, PRNGKey, Sequence
 
+import pickle
 
 @struct.dataclass
 class CrossFormerModel:
@@ -324,6 +325,11 @@ class CrossFormerModel:
         )
         step = step if step is not None else checkpointer.latest_step()
         params = checkpointer.restore(step, params_shape)
+
+        print(f"param shape {params.keys()} step {step}")
+
+        with open("crossformer_params.pkl", "wb") as f:
+            pickle.dump(params, f)
 
         if config["text_processor"] is not None:
             text_processor = ModuleSpec.instantiate(config["text_processor"])()
