@@ -280,11 +280,17 @@ class CrossFormerModel:
         ) as f:
             config = json.load(f)
 
+        with open("config.pkl", "wb") as f:
+            pickle.dump(config, f)
+
         # load example batch
         with tf.io.gfile.GFile(
             tf.io.gfile.join(checkpoint_path, "example_batch.msgpack"), "rb"
         ) as f:
             example_batch = flax.serialization.msgpack_restore(f.read())
+
+        with open("example_batch.pkl", "wb") as f:
+            pickle.dump(example_batch, f)
 
         logging.debug(
             "Model was trained with observations: %s",
@@ -305,6 +311,9 @@ class CrossFormerModel:
             dataset_statistics = jax.tree_map(
                 np.array, dataset_statistics, is_leaf=lambda x: not isinstance(x, dict)
             )
+
+        with open("dataset_statistics.pkl", "wb") as f:
+            pickle.dump(dataset_statistics, f)
 
         # create model def (a CrossFormerModule)
         module = CrossFormerModule.create(**config["model"])
