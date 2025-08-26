@@ -5,15 +5,20 @@ from typing import Any, Optional, Tuple
 
 import flax
 from flax import struct
-from flax.training import orbax_utils
+# from flax.training import checkpoints
+# from flax.training import orbax_utils
 import jax
 from jax.experimental import multihost_utils
 import jax.numpy as jnp
 from jax.typing import ArrayLike
 import numpy as np
-import orbax.checkpoint
+from jax.tree_util import tree_unflatten
+from tqdm import tqdm
+# import orbax.checkpoint
+print("loading tensorflow")
 import tensorflow as tf
-
+print("loaded tensorflow")
+import pickle
 from crossformer.data.utils.data_utils import NormalizationType
 from crossformer.data.utils.text_processing import TextProcessor
 from crossformer.model.components.action_heads import ActionHead
@@ -21,7 +26,6 @@ from crossformer.model.crossformer_module import CrossFormerModule
 from crossformer.utils.spec import ModuleSpec
 from crossformer.utils.typing import Config, Data, Params, PRNGKey, Sequence
 
-import pickle
 
 @struct.dataclass
 class CrossFormerModel:
@@ -256,8 +260,8 @@ class CrossFormerModel:
     @classmethod
     def load_pretrained(
         cls,
-        checkpoint_path: str,
-        step: Optional[int] = None,
+        # checkpoint_path: str,
+        # step: Optional[int] = None,
     ) -> "CrossFormerModel":
         """Loads a model from a checkpoint that was saved via `save_pretrained`.
 
@@ -265,32 +269,30 @@ class CrossFormerModel:
             checkpoint_path (str): A path to either a directory of checkpoints or a single checkpoint.
             step (int, optional): If multiple checkpoints are present, which one to load. Defaults to the latest.
         """
-        if checkpoint_path.startswith("hf://"):
-            if step:
-                raise ValueError(
-                    "You can't set config['pretrained_step'] when loading from HuggingFace."
-                )
-            checkpoint_path = _download_from_huggingface(
-                checkpoint_path.removeprefix("hf://")
-            )
-
+        # if checkpoint_path.startswith("hf://"):
+        #     if step:
+        #         raise ValueError(
+        #             "You can't set config['pretrained_step'] when loading from HuggingFace."
+        #         )
+        #     checkpoint_path = _download_from_huggingface(
+        #         checkpoint_path.removeprefix("hf://")
+        #     )
+        checkpoint_path = "/workspace/crossformer/assets"
+        print("checkpoint loading ....")
         # load config
+
         with tf.io.gfile.GFile(
             tf.io.gfile.join(checkpoint_path, "config.json"), "r"
         ) as f:
             config = json.load(f)
-
-        with open("config.pkl", "wb") as f:
-            pickle.dump(config, f)
+        print("got config.json ....")
 
         # load example batch
         with tf.io.gfile.GFile(
             tf.io.gfile.join(checkpoint_path, "example_batch.msgpack"), "rb"
         ) as f:
             example_batch = flax.serialization.msgpack_restore(f.read())
-
-        with open("example_batch.pkl", "wb") as f:
-            pickle.dump(example_batch, f)
+        print("got example_batch.msgpack ....")
 
         logging.debug(
             "Model was trained with observations: %s",
@@ -311,10 +313,7 @@ class CrossFormerModel:
             dataset_statistics = jax.tree_map(
                 np.array, dataset_statistics, is_leaf=lambda x: not isinstance(x, dict)
             )
-
-        with open("dataset_statistics.pkl", "wb") as f:
-            pickle.dump(dataset_statistics, f)
-
+        print("got dataset_statistics.json ....")
         # create model def (a CrossFormerModule)
         module = CrossFormerModule.create(**config["model"])
 
@@ -324,26 +323,52 @@ class CrossFormerModel:
             example_batch["task"],
             example_batch["observation"]["timestep_pad_mask"],
         )
-        params_shape = jax.eval_shape(
-            partial(module.init, train=False), jax.random.PRNGKey(0), *init_args
-        )["params"]
-
+        # print("loading jax")
+        # params_shape = jax.eval_shape(
+        #     partial(module.init, train=False), jax.random.PRNGKey(0), *init_args
+        # )["params"]
+        # print("loaded jax")
         # restore params, checking to make sure the shape matches
-        checkpointer = orbax.checkpoint.CheckpointManager(
-            checkpoint_path, orbax.checkpoint.PyTreeCheckpointer()
-        )
-        step = step if step is not None else checkpointer.latest_step()
-        params = checkpointer.restore(step, params_shape)
+        # checkpointer = orbax.checkpoint.CheckpointManager(
+        #     checkpoint_path, orbax.checkpoint.PyTreeCheckpointer()
+        # )
+        # step = step if step is not None else checkpointer.latest_step()
+        # params = checkpointer.restore(step, params_shape)
+        # Restore latest checkpoint
+        # state = checkpoints.restore_checkpoint(ckpt_dir=checkpoint_path, target=None)
+        # chunk_dir = checkpoint_path+"/chunks"
 
-        print(f"param shape {params.keys()} step {step}")
+        # # Load the PyTree structure
+        # print("loading treedef")
+        # with open(os.path.join(chunk_dir, "treedef.pkl"), "rb") as f:
+        #     treedef = pickle.load(f)
+        # print("loaded treedef")
+        # # Get sorted array files
+        # array_files = sorted([f for f in os.listdir(chunk_dir) if f.startswith("arr_")],
+        #              key=lambda x: int(x.split('_')[1].split('.')[0]))
+        # print("array_files")
+        # # Load arrays with memory mapping
+        # flat = []
+        # for arr_file in tqdm(array_files, desc="Loading parameters"):
+        #     arr = np.load(os.path.join(chunk_dir, arr_file), mmap_mode="r")
+        #     flat.append(arr)
 
-        with open("crossformer_params.pkl", "wb") as f:
-            pickle.dump(params, f)
+        # # Reconstruct the PyTree
+        # params = tree_unflatten(treedef, flat)
+        # print(params.keys())
+        with open(checkpoint_path+"/crossformer_params.msgpack", "rb") as f:
+            params = flax.serialization.from_bytes(None, f.read())
+        print("got pickle files")
+        # # If you just want params:
+        # params = state['params'] if 'params' in state else state
 
-        if config["text_processor"] is not None:
-            text_processor = ModuleSpec.instantiate(config["text_processor"])()
-        else:
-            text_processor = None
+        # Get step number
+        step = 300000
+
+        # if config["text_processor"] is not None:
+        #     text_processor = ModuleSpec.instantiate(config["text_processor"])()
+        # else:
+        text_processor = None
 
         return cls(
             module=module,
@@ -354,65 +379,7 @@ class CrossFormerModel:
             dataset_statistics=dataset_statistics,
         )
 
-    def save_pretrained(
-        self,
-        step: int,
-        checkpoint_path: Optional[str] = None,
-        checkpoint_manager: Optional[orbax.checkpoint.CheckpointManager] = None,
-    ):
-        """Saves a model, as well as corresponding metadata needed for `load_pretrained`. Takes either a
-        pre-existing checkpoint manager (which already knows where to save the checkpoint) or a path to a
-        directory to save the checkpoint to.
 
-        Args:
-            step (int): Step number.
-            checkpoint_path (str, optional): Path to save the checkpoint.
-            checkpoint_manager (optional): Checkpoint manager to save the checkpoint.
-            params (optional): Params to save. If None, uses self.params.
-        """
-        if (checkpoint_path is None) == (checkpoint_manager is None):
-            raise ValueError(
-                "Must provide exactly one of checkpoint_path or checkpoint_manager."
-            )
-        if checkpoint_manager is None:
-            checkpoint_manager = orbax.checkpoint.CheckpointManager(
-                checkpoint_path, orbax.checkpoint.PyTreeCheckpointer()
-            )
-        if checkpoint_path is None:
-            checkpoint_path = str(checkpoint_manager._directory)
-
-        # save params
-        checkpoint_manager.save(
-            step,
-            self.params,
-            {"save_args": orbax_utils.save_args_from_target(self.params)},
-        )
-
-        if jax.process_index() == 0:
-            # save config
-            config_path = tf.io.gfile.join(checkpoint_path, "config.json")
-            if not tf.io.gfile.exists(config_path):
-                with tf.io.gfile.GFile(config_path, "w") as f:
-                    json.dump(self.config, f)
-
-            # save example batch
-            example_batch_path = tf.io.gfile.join(
-                checkpoint_path, "example_batch.msgpack"
-            )
-            if not tf.io.gfile.exists(example_batch_path):
-                with tf.io.gfile.GFile(example_batch_path, "wb") as f:
-                    f.write(flax.serialization.msgpack_serialize(self.example_batch))
-
-            # save dataset statistics
-            dataset_statistics_path = tf.io.gfile.join(
-                checkpoint_path, "dataset_statistics.json"
-            )
-            if not tf.io.gfile.exists(dataset_statistics_path):
-                with tf.io.gfile.GFile(dataset_statistics_path, "w") as f:
-                    json.dump(
-                        jax.tree_map(lambda x: x.tolist(), self.dataset_statistics),
-                        f,
-                    )
 
     @classmethod
     def from_config(
